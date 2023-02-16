@@ -1,0 +1,25 @@
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyhmmsearch"
+version = "0.0.1"
+authors = [{ name = "Cody Martin", email = "codycmar10@gmail.com" }]
+description = "Custom HMMsearch cli using pyhmmer"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = ["pyhmmer >= 0.7"]
+
+[project.scripts]
+pyhmmsearch = "hmmsearch:main"
+
+[project.urls]
+"Homepage" = "https://github.com/cody-mar10/pyhmmsearch"
+"Bug Tracker" = "https://github.com/cody-mar10/pyhmmsearch/issues"
