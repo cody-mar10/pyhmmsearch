@@ -2,22 +2,18 @@
 import argparse
 from typing import Iterator, TextIO
 
-from pyhmmer.hmmer import hmmsearch as pyhmmsearch
 from pyhmmer.easel import Alphabet, SequenceFile
-from pyhmmer.plan7 import HMMFile, TopHits
+from pyhmmer.hmmer import hmmsearch as pyhmmsearch
+from pyhmmer.plan7 import HMM, HMMFile, TopHits
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="hmmsearch using pyhmmer")
     cutoff_group = parser.add_argument_group("CUTOFF (ONLY ONE ALLOWED)")
     cutoff_args = cutoff_group.add_mutually_exclusive_group()
-    parser.add_argument(
-        "-i", "--input", required=True, help="input fasta sequence file"
-    )
-    parser.add_argument("-d", "--database", required=True, help="hmm database file")
-    parser.add_argument(
-        "-o", "--output", required=True, help="output tab-delimited results file"
-    )
+    parser.add_argument("-i", "--input", required=True, help="input fasta sequence file")
+    parser.add_argument("-d", "--database", required=True, nargs="+", help="hmm database file(s)")
+    parser.add_argument("-o", "--output", required=True, help="output tab-delimited results file")
     parser.add_argument(
         "-c",
         "--cpus",
@@ -77,6 +73,7 @@ def _write_domain_results(
     fdst.write(msg)
 
 
+# TODO: should write where alignment is relative to query and profiles?
 def write_output(allhits: Iterator[TopHits], fdst: TextIO, domain_search: bool):
     if domain_search:
         header = "query\thmm\tdom_e-value\tdom_bitscore\tstart\tend\n"
@@ -112,7 +109,7 @@ def write_output(allhits: Iterator[TopHits], fdst: TextIO, domain_search: bool):
 def main():
     args = parse_args()
     seqfile = args.input
-    hmmfile = args.database
+    hmmfiles: list[str] = args.database
     output = args.output
     cpus = args.cpus
     domain_search = args.domain
@@ -123,13 +120,18 @@ def main():
     else:
         cutoff = {"domT": args.bit_threshold}
 
-    alphabet = Alphabet.amino()
-    with SequenceFile(seqfile, digital=True, alphabet=alphabet) as sfp, HMMFile(
-        hmmfile
-    ) as hfp:
-        sequences = sfp.read_block()
-        hmms = hfp.optimized_profiles() if hfp.is_pressed() else hfp
+    hmms: list[HMM] = []
+    for hmmfile in hmmfiles:
+        with HMMFile(hmmfile) as hfp:
+            hmm_iter = hfp.optimized_profiles() if hfp.is_pressed() else hfp
+            for hmm in hmm_iter:
+                hmms.append(hmm)  # type: ignore[assignment]
 
+    alphabet = Alphabet.amino()
+    with SequenceFile(seqfile, digital=True, alphabet=alphabet) as sfp:
+        sequences = sfp.read_block()
+
+        # TODO: can add a progress bar with a callback
         allhits: Iterator[TopHits] = pyhmmsearch(hmms, sequences, cpus=cpus, **cutoff)
 
         with open(output, "w") as ofp:
